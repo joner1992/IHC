@@ -1,13 +1,19 @@
 package com.example.guilherme.myapplication;
 
 import android.app.ListActivity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.IntentFilter;
 import android.database.Cursor;
+import android.media.Image;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.support.v7.app.AlertDialog;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,7 +46,6 @@ import java.util.Timer;
 public class MainActivity extends ListActivity  {
     private static final int UPDATE_FREQUENCY = 500;
     private static final int STEP_VALUE = 4000;
-    private int maxVolume = 100;
 
     private MediaCursorAdapter mediaAdapter = null;
     private TextView selectedFile = null;
@@ -50,6 +55,7 @@ public class MainActivity extends ListActivity  {
     private ImageButton playButton = null;
     private ImageButton prevButton = null;
     private ImageButton nextButton = null;
+    private ImageButton helpButton = null;
     private boolean isStarted = true;
     private String currentFile = "";
     private boolean isMoveingSeekBar = false;
@@ -64,9 +70,9 @@ public class MainActivity extends ListActivity  {
     };
 
     private static final int REQUEST_CODE = 1234;
-    private ArrayList resultList;
-    private SensorManager sManager;
-    private int valor = 0;
+    private ArrayList<String> tags = new ArrayList<>();
+    private int counter_tags = 0;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,10 +84,15 @@ public class MainActivity extends ListActivity  {
         playButton = (ImageButton) findViewById(R.id.play);
         prevButton = (ImageButton) findViewById(R.id.prev);
         nextButton = (ImageButton) findViewById(R.id.next);
+        helpButton = (ImageButton) findViewById(R.id.help);
         player = new MediaPlayer();
         player.setOnCompletionListener(onCompletion);
         player.setOnErrorListener(onError);
         seekbar.setOnSeekBarChangeListener(seekBarChanged);
+        MediaButtonIntentReceiver mMediaButtonReceiver = new MediaButtonIntentReceiver();
+        IntentFilter mediaFilter = new IntentFilter(Intent.ACTION_MEDIA_BUTTON);
+        mediaFilter.setPriority(1000);
+        registerReceiver(mMediaButtonReceiver, mediaFilter);
         Cursor cursor = getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, null, null, null, null);
         if (null != cursor) {
             cursor.moveToFirst();
@@ -91,6 +102,7 @@ public class MainActivity extends ListActivity  {
             playButton.setOnClickListener(onButtonClick);
             prevButton.setOnClickListener(onButtonClick);
             nextButton.setOnClickListener(onButtonClick);
+            helpButton.setOnClickListener(onButtonClick);
 
         }
         PackageManager pm = getPackageManager();
@@ -174,6 +186,8 @@ public class MainActivity extends ListActivity  {
             double durationInMin = ((double) durationInMs / 1000.0 ) / 60.0;
             durationInMin = new BigDecimal(Double.toString(durationInMin)).setScale(2, BigDecimal.ROUND_UP).doubleValue();
             duration.setText("" + durationInMin);
+            tags.add(counter_tags, cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.DATA)));
+            counter_tags += 1;
             view.setTag(cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.DATA)));
         }
         @Override
@@ -184,6 +198,33 @@ public class MainActivity extends ListActivity  {
             return v;
         }
     }
+
+    public class MediaButtonIntentReceiver extends BroadcastReceiver {
+
+        public MediaButtonIntentReceiver() {
+            super();
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String intentAction = intent.getAction();
+            if (!Intent.ACTION_MEDIA_BUTTON.equals(intentAction)) {
+                return;
+            }
+            KeyEvent event = (KeyEvent)intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+            if (event == null) {
+                return;
+            }
+            int action = event.getAction();
+            if (action == KeyEvent.ACTION_DOWN) {
+                // do something
+                startVoiceRecognition();
+            }
+            abortBroadcast();
+        }
+    }
+
+
     private View.OnClickListener onButtonClick = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -228,15 +269,40 @@ public class MainActivity extends ListActivity  {
                 case R.id.voice: {
                     if(isVoiceAllowed == false){
                         isVoiceAllowed = true;
-                        Toast.makeText(v.getContext(), "Voice commands activated",Toast.LENGTH_LONG).show();
+                        Toast.makeText(v.getContext(), "Reconhecimento de voz ativado",Toast.LENGTH_LONG).show();
+                        if (player.isPlaying()) {
+                            handler.removeCallbacks(updatePositionRunnable);
+                            player.pause();
+                            playButton.setImageResource(android.R.drawable.ic_media_play);
+                        }
                         startVoiceRecognition();
                     }
                     else {
                         isVoiceAllowed = false;
-                        Toast.makeText(v.getContext(), "Voice commands deactivated",Toast.LENGTH_LONG).show();
+                        Toast.makeText(v.getContext(), "Reconhecimento de voz desativado",Toast.LENGTH_LONG).show();
                     }
                     break;
 
+                }
+                case R.id.help: {
+                    new AlertDialog.Builder(v.getContext())
+                            .setTitle("Helper")
+                            .setMessage("\tAqui você encontra a lista de comandos de voz diponíveis para você utilizar o aplicativo:\n " +
+                                    "-> Para dar PLAY: Play! | Go! | OK, go! | Continue | Start\n" +
+                                    "-> Para dar PAUSE: Pause! | Stop! | Hold! | Hold The Door!!! | Wait! | Stop\n " +
+                                    "-> Para passar à próxima música: Next\n" +
+                                    "-> Para voltar à música anterior: Back | Previous\n" +
+                                    "-> Para aumentar o volume: On! | Up! | Increase|\n" +
+                                    "-> Para diminuir o volume: Low! | Down! | Decrease")
+                            .setNegativeButton("Voltar", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    // do nothing
+                                }
+                            })
+                            .setIcon(android.R.drawable.ic_dialog_alert)
+                            .show();
+
+                    break;
                 }
             }
         }
@@ -246,7 +312,7 @@ public class MainActivity extends ListActivity  {
 
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "AndroidBite Voice Recognition...");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale seu comando...");
         startActivityForResult(intent, REQUEST_CODE);
 
     }
@@ -256,15 +322,9 @@ public class MainActivity extends ListActivity  {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_CODE && resultCode == RESULT_OK) {
             ArrayList<String> matches = data.getStringArrayListExtra( RecognizerIntent.EXTRA_RESULTS);
-            ArrayList<String> resultList = new ArrayList<String>();
-            resultList.add(0,"play");
-            resultList.add(0,"pause");
-
-            //resultList.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, matches));
-
 
             for(int i = 0; i < matches.size();i++) {
-                if(matches.get(i).equalsIgnoreCase("play") || matches.get(i).equalsIgnoreCase("toca") || matches.get(i).equalsIgnoreCase("continua")) {
+                if(matches.get(i).equalsIgnoreCase("play")) {
                     if (isStarted) {
                         player.start();
                         playButton.setImageResource(android.R.drawable.ic_media_pause);
@@ -272,33 +332,148 @@ public class MainActivity extends ListActivity  {
 
                     }
                 }
-                else if(matches.get(i).equalsIgnoreCase("pause")) {
+                if(matches.get(i).equalsIgnoreCase("start")) {
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+                }
+                if(matches.get(i).equalsIgnoreCase("go")){
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+                }
+                if(matches.get(i).equalsIgnoreCase("ok go")){
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+                }
+                if(matches.get(i).equalsIgnoreCase("continue")){
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+                }
+
+                if(matches.get(i).equalsIgnoreCase("pause")) {
                     if (player.isPlaying()) {
                         handler.removeCallbacks(updatePositionRunnable);
                         player.pause();
                         playButton.setImageResource(android.R.drawable.ic_media_play);
                     }
                 }
-                else if(matches.get(i).equalsIgnoreCase("increase")) {
-                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-                    int currVolume = audioManager.getStreamVolume(player.getAudioSessionId());
-                    float log1=(float)(Math.log(maxVolume-currVolume)/Math.log(maxVolume));
-                    if(log1 < 0.0f){
-                        log1 = 0.0f;
+                if(matches.get(i).equalsIgnoreCase("wait")) {
+                    if (player.isPlaying()) {
+                        handler.removeCallbacks(updatePositionRunnable);
+                        player.pause();
+                        playButton.setImageResource(android.R.drawable.ic_media_play);
                     }
-                    player.setVolume(1-log1, 1-log1);
-                    Toast.makeText(MainActivity.this, "Volume increased",Toast.LENGTH_LONG).show();
                 }
-                else if(matches.get(i).equalsIgnoreCase("increase")) {
-                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-                    int currVolume = audioManager.getStreamVolume(player.getAudioSessionId());
-                    float log1=(float)(Math.log(maxVolume-currVolume)/Math.log(maxVolume));
-                    if(log1 > 1.0f){
-                        log1 = 1.0f;
+                if(matches.get(i).equalsIgnoreCase("hold")) {
+                    if (player.isPlaying()) {
+                        handler.removeCallbacks(updatePositionRunnable);
+                        player.pause();
+                        playButton.setImageResource(android.R.drawable.ic_media_play);
                     }
-                    player.setVolume(1-log1, 1-log1);
-                    Toast.makeText(MainActivity.this, "Volume decreased",Toast.LENGTH_LONG).show();
                 }
+                if(matches.get(i).equalsIgnoreCase("hold the door")) {
+                    if (player.isPlaying()) {
+                        handler.removeCallbacks(updatePositionRunnable);
+                        player.pause();
+                        playButton.setImageResource(android.R.drawable.ic_media_play);
+                    }
+                }
+                if(matches.get(i).equalsIgnoreCase("stop")) {
+                    if (player.isPlaying()) {
+                        handler.removeCallbacks(updatePositionRunnable);
+                        player.pause();
+                        playButton.setImageResource(android.R.drawable.ic_media_play);
+                    }
+                }
+
+                if(matches.get(i).equalsIgnoreCase("next")) {
+                    int current = tags.lastIndexOf(currentFile);
+                    if(current == tags.size()-1){
+
+                        currentFile = tags.get(0);
+                        startPlay(currentFile);
+                    }
+                    else{
+                        currentFile = tags.get(current+1);
+                        startPlay(currentFile);
+                    }
+                }
+
+                if(matches.get(i).equalsIgnoreCase("previous")) {
+                    int current = tags.lastIndexOf(currentFile);
+                    if(current == 0){
+                        currentFile = tags.get(0);
+                        startPlay(currentFile);
+                    }
+                    else{
+                        currentFile = tags.get(current-1);
+                        startPlay(currentFile);
+                    }
+                }
+                if(matches.get(i).equalsIgnoreCase("back")) {
+                    int current = tags.lastIndexOf(currentFile);
+                    if(current == 0){
+                        currentFile = tags.get(0);
+                        startPlay(currentFile);
+                    }
+                    else{
+                        currentFile = tags.get(current-1);
+                        startPlay(currentFile);
+                    }
+                }
+
+
+
+                if(matches.get(i).equalsIgnoreCase("increase")) {
+                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+                    audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_RAISE, AudioManager.FLAG_VIBRATE );
+                    Toast.makeText(MainActivity.this, "Volume aumentou",Toast.LENGTH_LONG).show();
+
+                }
+                if(matches.get(i).equalsIgnoreCase("on")) {
+                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+                    audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_RAISE, AudioManager.FLAG_VIBRATE );
+                    Toast.makeText(MainActivity.this, "Volume aumentou",Toast.LENGTH_LONG).show();
+                }
+                if(matches.get(i).equalsIgnoreCase("up")) {
+                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+                    audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_RAISE, AudioManager.FLAG_VIBRATE );
+                    Toast.makeText(MainActivity.this, "Volume aumentou",Toast.LENGTH_LONG).show();
+                }
+                if(matches.get(i).equalsIgnoreCase("decrease")) {
+                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+                    audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_LOWER, AudioManager.FLAG_VIBRATE );
+                    Toast.makeText(MainActivity.this, "Volume diminuiu",Toast.LENGTH_LONG).show();
+
+                }
+                if(matches.get(i).equalsIgnoreCase("down")) {
+                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+                    audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_LOWER, AudioManager.FLAG_VIBRATE );
+                    Toast.makeText(MainActivity.this, "Volume diminuiu",Toast.LENGTH_LONG).show();
+                }
+                if(matches.get(i).equalsIgnoreCase("low")) {
+                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+                    audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_LOWER, AudioManager.FLAG_VIBRATE );
+                    Toast.makeText(MainActivity.this, "Volume diminuiu",Toast.LENGTH_LONG).show();
+                }
+
+
+
 
             }
             captureOver = false;
