@@ -276,6 +276,7 @@ public class MainActivity extends ListActivity  {
                             playButton.setImageResource(android.R.drawable.ic_media_play);
                         }
                         startVoiceRecognition();
+
                     }
                     else {
                         isVoiceAllowed = false;
@@ -289,7 +290,7 @@ public class MainActivity extends ListActivity  {
                             .setTitle("Helper")
                             .setMessage("\tAqui você encontra a lista de comandos de voz diponíveis para você utilizar o aplicativo:\n " +
                                     "-> Para dar PLAY: Play! | Go! | OK, go! | Continue | Start\n" +
-                                    "-> Para dar PAUSE: Pause! | Stop! | Hold! | Hold The Door!!! | Wait! | Stop\n " +
+                                    "-> Para dar PAUSE: Pause! | Stop! | Hold! | Hold The Door!!! | Wait!\n " +
                                     "-> Para passar à próxima música: Next\n" +
                                     "-> Para voltar à música anterior: Back | Previous\n" +
                                     "-> Para aumentar o volume: On! | Up! | Increase|\n" +
@@ -443,37 +444,76 @@ public class MainActivity extends ListActivity  {
                     AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
                     audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_RAISE, AudioManager.FLAG_VIBRATE );
                     Toast.makeText(MainActivity.this, "Volume aumentou",Toast.LENGTH_LONG).show();
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+
 
                 }
                 if(matches.get(i).equalsIgnoreCase("on")) {
                     AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
                     audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_RAISE, AudioManager.FLAG_VIBRATE );
                     Toast.makeText(MainActivity.this, "Volume aumentou",Toast.LENGTH_LONG).show();
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+
                 }
                 if(matches.get(i).equalsIgnoreCase("up")) {
                     AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
                     audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_RAISE, AudioManager.FLAG_VIBRATE );
                     Toast.makeText(MainActivity.this, "Volume aumentou",Toast.LENGTH_LONG).show();
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+
                 }
                 if(matches.get(i).equalsIgnoreCase("decrease")) {
                     AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
                     audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_LOWER, AudioManager.FLAG_VIBRATE );
                     Toast.makeText(MainActivity.this, "Volume diminuiu",Toast.LENGTH_LONG).show();
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+
 
                 }
                 if(matches.get(i).equalsIgnoreCase("down")) {
                     AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
                     audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_LOWER, AudioManager.FLAG_VIBRATE );
                     Toast.makeText(MainActivity.this, "Volume diminuiu",Toast.LENGTH_LONG).show();
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+
                 }
                 if(matches.get(i).equalsIgnoreCase("low")) {
-                    AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,AudioManager.ADJUST_LOWER, AudioManager.FLAG_VIBRATE );
-                    Toast.makeText(MainActivity.this, "Volume diminuiu",Toast.LENGTH_LONG).show();
+                    AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                    audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_VIBRATE);
+                    Toast.makeText(MainActivity.this, "Volume diminuiu", Toast.LENGTH_LONG).show();
+                    if (isStarted) {
+                        player.start();
+                        playButton.setImageResource(android.R.drawable.ic_media_pause);
+                        updatePosition();
+
+                    }
+
                 }
-
-
-
 
             }
             captureOver = false;
